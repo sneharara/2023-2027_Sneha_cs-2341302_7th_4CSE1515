@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+
+# Local database histories (avoid committing large JSON logs)
+alerts_history.json
+users_history.json
+backend/alerts_history.json
+backend/users_history.json
+
+# OS files
+.DS_Store
+Thumbs.db

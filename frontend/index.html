@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire & Smoke Monitoring Center</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Background overlay for flashing alerts -->
+    <div id="alert-overlay" class="alert-overlay-hidden"></div>
+
+    <div class="app-container">
+        <!-- Sidebar/Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-fire-flame-curved logo-icon"></i>
+                <span class="logo-text">IgnisGuard</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item active"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="/camera" class="nav-item"><i class="fa-solid fa-video"></i> Camera Node</a>
+            </nav>
+            <div class="system-status-sidebar">
+                <div class="sidebar-status-title">System Status</div>
+                <div class="status-indicator-container">
+                    <span id="system-dot" class="status-dot green"></span>
+                    <span id="system-status-text">Monitoring Active</span>
+                </div>
+            </div>
+
+            <!-- User Profile Box -->
+            <div class="user-profile-box" id="user-profile" style="display: none; margin-top: 24px;">
+                <div class="sidebar-status-title">Active Observer</div>
+                <div class="profile-info">
+                    <div class="profile-avatar"><i class="fa-solid fa-user-shield"></i></div>
+                    <div class="profile-details">
+                        <div id="profile-name" class="profile-name">-</div>
+                        <div id="profile-email" class="profile-email">-</div>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn btn-secondary btn-sm btn-block" style="margin-top: 12px; width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title-box">
+                    <h1>Central Monitoring Dashboard</h1>
+                    <p class="subtitle">Real-time Smoke & Fire IoT Safety System</p>
+                </div>
+                <div class="header-actions">
+                    <button id="siren-toggle" class="btn btn-secondary">
+                        <i class="fa-solid fa-volume-high"></i> Mute Alarm
+                    </button>
+                    <button id="clear-btn" class="btn btn-danger">
+                        <i class="fa-solid fa-trash-can"></i> Clear History
+                    </button>
+                </div>
+            </header>
+
+            <!-- Stats & Status Grid -->
+            <section class="dashboard-grid">
+                <!-- Live System Banner (Glassmorphic Card) -->
+                <div class="card card-status status-safe" id="status-card">
+                    <div class="card-status-icon">
+                        <i id="status-icon" class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div class="card-status-details">
+                        <span class="card-label">CURRENT THREAT LEVEL</span>
+                        <h2 id="threat-level-text">SYSTEM SECURE</h2>
+                        <p id="threat-desc">No active anomalies detected across connected camera sensors.</p>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-mini-grid">
+                    <div class="card card-stat">
+                        <div class="stat-icon-wrapper blue">
+                            <i class="fa-solid fa-video"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Active Sensors</span>
+                            <span class="stat-value" id="stat-sensors">0</span>
+                        </div>
+                    </div>
+                    <div class="card card-stat">
+                        <div class="stat-icon-wrapper orange">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Alerts Logged</span>
+                            <span class="stat-value" id="stat-alerts">0</span>
+                        </div>
+                    </div>
+                    <div class="card card-stat">
+                        <div class="stat-icon-wrapper green">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Subscribers</span>
+                            <span class="stat-value" id="stat-subscribers">0</span>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Live Camera Monitor Section -->
+            <div class="card live-monitor-card" style="margin-bottom: 32px;">
+                <div class="camera-title-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2 style="font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-tower-broadcast"></i> Live Camera Monitor
+                    </h2>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="live-indicator-dot" class="status-dot orange" style="display: none; width: 8px; height: 8px; box-shadow: none;"></span>
+                        <span id="live-indicator-text" style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">Offline</span>
+                    </div>
+                </div>
+                <div class="video-container" style="max-height: 400px; background: #000; display: flex; align-items: center; justify-content: center; position: relative;">
+                    <img id="live-stream-view" src="" style="width: 100%; height: 100%; object-fit: contain; display: none;" />
+                    <div id="live-placeholder" style="color: var(--text-secondary); text-align: center; padding: 60px 20px;">
+                        <i class="fa-solid fa-video-slash" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                        <h3>Camera Stream Offline</h3>
+                        <p style="font-size: 13px; margin-top: 6px;">Start detection on the Camera Sensor Node to view the live feed.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Alerts & Logs -->
+            <section class="logs-section">
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-clock-rotate-left"></i> Real-time Activity Log</h2>
+                    <span class="badge" id="log-count">0 Events</span>
+                </div>
+
+                <!-- Alert Cards Feed -->
+                <div id="alerts-feed" class="alerts-feed">
+                    <div id="no-alerts-msg" class="no-alerts-placeholder">
+                        <i class="fa-solid fa-circle-check placeholder-icon"></i>
+                        <h3>All Systems Clear</h3>
+                        <p>No fire or smoke incidents have been logged. Open a Camera Node to begin sending live alerts.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Alert Modal (Popup for Critical Events) -->
+    <div id="alert-modal" class="modal-hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fa-solid fa-triangle-exclamation modal-alert-icon"></i>
+                <h2>CRITICAL DANGER DETECTED</h2>
+            </div>
+            <div class="modal-body">
+                <p>A fire or smoke event was reported by <strong id="modal-cam-name">Sensor 1</strong>.</p>
+                <div class="modal-snapshot-box">
+                    <img id="modal-snapshot" src="" alt="Threat Snapshot"/>
+                </div>
+                <div class="modal-meta">
+                    <span><strong>Event:</strong> <span id="modal-label">Fire</span></span>
+                    <span><strong>Confidence:</strong> <span id="modal-confidence">95%</span></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-dismiss" class="btn btn-primary">Acknowledge Alert</button>
+            </div>
+        </div>
+    </div>
+    <!-- Login Modal (Overlay for Initial Sign-in) -->
+    <div id="login-overlay" class="login-overlay-hidden">
+        <div class="card login-card">
+            <div class="login-header">
+                <i class="fa-solid fa-fire-flame-curved logo-icon"></i>
+                <h2>IgnisGuard Portal</h2>
+                <p>Register your email to receive live safety alerts and dashboard notifications.</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-name">Your Name</label>
+                    <input type="text" id="login-name" class="form-input" required placeholder="e.g. John Doe">
+                </div>
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" id="login-email" class="form-input" required placeholder="e.g. john@example.com">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login & Subscribe
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom scripts -->
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

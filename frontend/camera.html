@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fire & Smoke Sensor Node</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- TensorFlow.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-fire-flame-curved logo-icon"></i>
+                <span class="logo-text">IgnisGuard</span>
+            </div>
+            <nav class="nav-menu">
+                <a href="/" class="nav-item"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+                <a href="/camera" class="nav-item active"><i class="fa-solid fa-video"></i> Camera Node</a>
+            </nav>
+            <div class="system-status-sidebar" style="margin-top: 16px;">
+                <div class="sidebar-status-title">Inference Engine</div>
+                <div class="status-indicator-container">
+                    <span id="model-dot" class="status-dot orange"></span>
+                    <span id="model-status-text">Loading Model...</span>
+                </div>
+            </div>
+
+            <!-- User Profile Box -->
+            <div class="user-profile-box" id="user-profile" style="display: none; margin-top: 24px;">
+                <div class="sidebar-status-title">Active Observer</div>
+                <div class="profile-info">
+                    <div class="profile-avatar"><i class="fa-solid fa-user-shield"></i></div>
+                    <div class="profile-details">
+                        <div id="profile-name" class="profile-name">-</div>
+                        <div id="profile-email" class="profile-email">-</div>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn btn-secondary btn-sm btn-block" style="margin-top: 12px; width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title-box">
+                    <h1>Sensor Camera Interface</h1>
+                    <p class="subtitle">Edge Node Classifier</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/" class="btn btn-secondary"><i class="fa-solid fa-chart-line"></i> Go to Dashboard</a>
+                </div>
+            </header>
+
+            <!-- Grid Layout -->
+            <section class="camera-grid">
+                <!-- Video Stream Panel -->
+                <div class="card camera-card">
+                    <div class="camera-title-bar">
+                        <h3><i class="fa-solid fa-circle-play"></i> Live Camera Stream</h3>
+                        <span id="detection-badge" class="badge badge-inactive">Inference Idle</span>
+                    </div>
+                    
+                    <div class="video-container">
+                        <!-- Canvas overlay for drawing results -->
+                        <canvas id="camera-canvas" width="640" height="480"></canvas>
+                        <!-- Hidden raw video element -->
+                        <video id="webcam" autoplay playsinline muted width="640" height="480" style="display:none;"></video>
+                        
+                        <!-- Video loader overlay -->
+                        <div id="video-overlay" class="video-overlay">
+                            <i class="fa-solid fa-spinner fa-spin loader-icon"></i>
+                            <p id="overlay-text">Starting Camera Stream...</p>
+                        </div>
+                    </div>
+
+                    <div class="camera-controls-bar">
+                        <button id="start-btn" class="btn btn-primary" disabled>
+                            <i class="fa-solid fa-play"></i> Start Detection
+                        </button>
+                        <button id="stop-btn" class="btn btn-secondary" disabled>
+                            <i class="fa-solid fa-pause"></i> Stop Detection
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Settings & Control Panel -->
+                <div class="card settings-card">
+                    <h2><i class="fa-solid fa-sliders"></i> Node Configuration</h2>
+                    <hr class="divider"/>
+
+                    <div class="form-group">
+                        <label for="camera-name-input">Sensor Node Name</label>
+                        <input type="text" id="camera-name-input" class="form-input" value="Backyard Cam-1" placeholder="e.g. Warehouse North">
+                        <p class="input-hint">The identifier displayed on the monitoring dashboard.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="threshold-slider">Trigger Threshold: <span id="threshold-val">80%</span></label>
+                        <input type="range" id="threshold-slider" class="form-slider" min="10" max="98" value="80">
+                        <p class="input-hint">Minimum classification confidence required to log an alert.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Target Detection Classes</label>
+                        <div class="class-list">
+                            <div class="class-item"><span class="class-bullet gray"></span> Smoke (Index 0)</div>
+                            <div class="class-item"><span class="class-bullet red"></span> Fire (Index 1)</div>
+                        </div>
+                        <p class="input-hint">Alerts will trigger ONLY for Fire or Smoke detections.</p>
+                    </div>
+
+                    <div class="card alert-testing-card">
+                        <h3><i class="fa-solid fa-bell"></i> Simulation Test</h3>
+                        <p>Simulate a positive detection event to test dashboard alerts and email notifications.</p>
+                        <div class="test-btn-group">
+                            <button id="test-fire-btn" class="btn btn-danger-outline btn-sm">Test Fire</button>
+                            <button id="test-smoke-btn" class="btn btn-warning-outline btn-sm">Test Smoke</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Custom camera logic script -->
+    <script src="/static/camera.js"></script>
+</body>
+</html>
