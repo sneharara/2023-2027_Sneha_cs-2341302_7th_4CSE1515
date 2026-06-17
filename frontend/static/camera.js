@@ -179,8 +179,8 @@ document.addEventListener("DOMContentLoaded", () => {
             lastFrameTime = now;
             
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Compress frame to JPEG (0.35 quality) to save bandwidth
-                const frameBase64 = canvas.toDataURL("image/jpeg", 0.35);
+                // Compress frame to JPEG (0.70 quality) for better image details
+                const frameBase64 = canvas.toDataURL("image/jpeg", 0.70);
                 const cameraName = cameraNameInput.value.trim() || "Remote Camera";
                 
                 ws.send(JSON.stringify({
