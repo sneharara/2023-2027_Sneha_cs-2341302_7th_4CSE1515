@@ -43,6 +43,7 @@ if os.path.exists(db_file_path):
         logger.error(f"Error loading alert history: {e}")
 
 # Email configuration
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
@@ -87,6 +88,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # Global tracking for camera detections
+# (Wait, let's keep the global tracking variables here to be safe and accurate to the original code structure)
 camera_consecutive_detections = {}
 camera_last_alert_time = {}
 
@@ -235,10 +237,6 @@ class UserLogout(BaseModel):
 
 # Email Sender Helper
 def send_email_alert(camera_name: str, label: str, confidence: float, image_base64: Optional[str]):
-    if not SENDER_EMAIL or not SENDER_PASSWORD:
-        logger.warning("Email notifications are skipped because SMTP credentials (SENDER_EMAIL, SENDER_PASSWORD) are not set in .env")
-        return
-
     # Determine recipient list
     recipients = [u for u in users_db if u.get("email")]
     if not recipients:
@@ -249,14 +247,142 @@ def send_email_alert(camera_name: str, label: str, confidence: float, image_base
             logger.info("No subscribers logged in and no RECEIVER_EMAIL configured. Skipping email alert.")
             return
 
-    try:
-        # Import platform for robust date/time representation
-        import platform
-        if platform.system() == 'Windows':
-            timestamp = os.popen('date /t').read().strip() + " " + os.popen('time /t').read().strip()
-        else:
-            timestamp = os.popen('date').read().strip()
+    # Import platform for robust date/time representation
+    import platform
+    if platform.system() == 'Windows':
+        timestamp = os.popen('date /t').read().strip() + " " + os.popen('time /t').read().strip()
+    else:
+        timestamp = os.popen('date').read().strip()
 
+    subject = f"⚠️ CRITICAL ALERT: {label.upper()} Detected by {camera_name}!"
+
+    # 1. BREVO REST API Flow
+    if BREVO_API_KEY:
+        logger.info("BREVO_API_KEY is configured. Sending alert email via Brevo REST API...")
+        try:
+            import urllib.request
+            import urllib.error
+
+            # Decode base64 image if present for attachment
+            img_attached = False
+            img_base64_raw = None
+            if image_base64 and "," in image_base64:
+                try:
+                    header, encoded = image_base64.split(",", 1)
+                    # Verify it's valid base64
+                    base64.b64decode(encoded)
+                    img_base64_raw = encoded
+                    img_attached = True
+                except Exception as ex:
+                    logger.error(f"Failed to decode base64 image for Brevo attachment: {ex}")
+
+            # Define base HTML template
+            body_html = f"""
+            <html>
+            <head>
+                <style>
+                    .container {{ font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ff4d4d; border-radius: 8px; max-width: 600px; }}
+                    .header {{ background-color: #ff4d4d; color: white; padding: 10px; text-align: center; border-radius: 6px 6px 0 0; font-size: 20px; font-weight: bold; }}
+                    .content {{ padding: 20px; line-height: 1.6; color: #333; }}
+                    .details {{ background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 5px solid #ff4d4d; }}
+                    .footer {{ font-size: 12px; color: #777; text-align: center; margin-top: 20px; }}
+                    .image-box {{ text-align: center; margin: 20px 0; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">🔥 {label.upper()} DETECTED 🔥</div>
+                    <div class="content">
+                        <p>Hello,</p>
+                        <p>This is an automated safety alert from your <b>Smoke & Fire Detection App</b>. The system has detected a potential emergency in your monitored space.</p>
+                        
+                        <div class="details">
+                            <b>Camera Sensor:</b> {camera_name}<br/>
+                            <b>Event Type:</b> {label}<br/>
+                            <b>Confidence Level:</b> {confidence:.2%}<br/>
+                            <b>Timestamp:</b> {timestamp}
+                        </div>
+            """
+
+            if img_attached:
+                body_html += """
+                        <div class="image-box">
+                            <p><b>Live Camera Snapshot:</b> [Attached to this email as snapshot.jpg]</p>
+                        </div>
+                """
+
+            body_html += """
+                        <p>Please check your central dashboard or investigate immediately.</p>
+                    </div>
+                    <div class="footer">
+                        Smoke & Fire Detection System © 2026. This email was sent automatically to active dashboard subscribers.
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "accept": "application/json",
+                "api-key": BREVO_API_KEY,
+                "content-type": "application/json"
+            }
+
+            for user in recipients:
+                recipient_email = user["email"]
+                recipient_name = user["name"]
+
+                personalized_html = body_html.replace("Hello,", f"Hello {recipient_name},")
+
+                payload = {
+                    "sender": {
+                        "name": "IgnisGuard",
+                        "email": SENDER_EMAIL if SENDER_EMAIL else "alerts@ignisguard.com"
+                    },
+                    "to": [
+                        {
+                            "email": recipient_email,
+                            "name": recipient_name
+                        }
+                    ],
+                    "subject": subject,
+                    "htmlContent": personalized_html
+                }
+
+                if img_attached and img_base64_raw:
+                    payload["attachment"] = [
+                        {
+                            "content": img_base64_raw,
+                            "name": "snapshot.jpg"
+                        }
+                    ]
+
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+
+                with urllib.request.urlopen(req) as response:
+                    resp_data = response.read().decode("utf-8")
+                    logger.info(f"✅ Email alert sent successfully via Brevo to {recipient_name} ({recipient_email})! Response: {resp_data}")
+
+            logger.info("Finished sending alert email loop via Brevo.")
+        except urllib.error.HTTPError as he:
+            err_body = he.read().decode("utf-8") if he.fp else ""
+            logger.error(f"❌ Failed to send email alert via Brevo HTTP API: HTTP {he.code} - {he.reason}. Details: {err_body}")
+        except Exception as e:
+            logger.error(f"❌ Failed to send email alert via Brevo HTTP API: {e}")
+        return
+
+    # 2. STANDARD SMTP Flow (Fallback)
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        logger.warning("Email notifications are skipped because neither BREVO_API_KEY nor SMTP credentials (SENDER_EMAIL, SENDER_PASSWORD) are set in .env")
+        return
+
+    try:
         logger.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT}...")
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
@@ -266,15 +392,12 @@ def send_email_alert(camera_name: str, label: str, confidence: float, image_base
             recipient_email = user["email"]
             recipient_name = user["name"]
             
-            subject = f"⚠️ CRITICAL ALERT: {label.upper()} Detected by {camera_name}!"
-            
             # Create MIMEMultipart message
             msg = MIMEMultipart('related')
             msg['Subject'] = subject
             msg['From'] = SENDER_EMAIL
             msg['To'] = recipient_email
 
-            # Plain text and HTML parts
             body_html = f"""
             <html>
             <head>
@@ -343,12 +466,13 @@ def send_email_alert(camera_name: str, label: str, confidence: float, image_base
                 msg.attach(mime_img)
 
             server.sendmail(SENDER_EMAIL, recipient_email, msg.as_string())
-            logger.info(f"✅ Email alert sent successfully to {recipient_name} ({recipient_email})!")
+            logger.info(f"✅ Email alert sent successfully via SMTP to {recipient_name} ({recipient_email})!")
             
         server.quit()
-        logger.info("Finished sending alert email loop.")
+        logger.info("Finished sending alert email loop via SMTP.")
     except Exception as e:
-        logger.error(f"❌ Failed to send email alert loop: {e}")
+        logger.error(f"❌ Failed to send email alert loop via SMTP: {e}")
+
 
 
 # API Endpoints
